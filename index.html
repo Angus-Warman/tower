@@ -22,6 +22,7 @@ body {color: white;}
 <script>
 
 const BLANK = "&nbsp;"
+const MAX_INV = 6
 
 function r(c) {return Math.floor(Math.random() * c)}
 
@@ -47,6 +48,7 @@ class Tile extends Obj {
 		super(icon, colour)
 		this.passable = passable
 		this.outside = outside
+		this.interact = () => {}
 		//this.seen = outside; //XX Visiblity function removed
 	}
 }
@@ -58,7 +60,7 @@ class Lever extends Tile {
 		this.pulledFunction = pulledFunction
 		this.interact = function() {
 			this.pulled = !this.pulled
-			this.icon = (this.pulled?"\\":"/")
+			this.icon = this.pulled ? "\\" : "/"
 			this.pulledFunction(this.pulled)
 		}
 	}
@@ -72,8 +74,7 @@ class Door extends Tile {
 		this.changeStatus = function() {
 			this.isOpen = !this.isOpen
 			this.passable = this.isOpen
-			if(this.isOpen) this.icon = openIcon
-			else this.icon = closeIcon
+			this.icon = this.isOpen ? openIcon : closeIcon
 		}
 	}
 }
@@ -93,9 +94,9 @@ class Loot extends Tile {
 }
 
 class Spike extends Tile {
-	constructor() {
+	constructor(damage = 1) {
 		super("^")
-		this.interact = () => { playChar.lives-- }
+		this.interact = () => { playChar.lives -= damage }
 	}
 }
 
@@ -144,17 +145,24 @@ class Item extends Obj {
 				this.use = explode
 				this.usesRemaining = 1
 				break
+
 			case "Scroll":
 				this.use = randTeleport
 				this.usesRemaining = 1
 				break
+
 			case "Key":
 				this.use = unlock
 				this.usesRemaining = 1
 				break
+
 			case "Ration":
 				this.use = eatFood
 				this.usesRemaining = 1
+				break
+
+			default:
+				this.use = () => {}
 				break
 		}
 	}
@@ -175,18 +183,18 @@ class Player extends Obj {
 		this.cantMove = false
 		this.lives = 3
 		this.score = 0
-		this.inventory = [{name:"Dagger"}, new Item("Ration"), new Item("Bomb"), new Item("Key")]
+		this.inventory = [new Item("Dagger"), new Item("Ration"), new Item("Bomb"), new Item("Key")]
 	}
 }
 
 var playChar = new Player("@", "red")
 var towerMap = []
-var minimumTowerWidth = 60
+const MIN_TOWER_WIDTH = 60
+const MAX_VIEW_HEIGHT = 30
+const SHOW_ALL_ROOMS = true
 
 var floorItems = []
-var maxViewHeight = 30
 var heightVisible = 12; //XX visibility
-var showAllRooms = true
 
 var alphabet = 'abcdefghijklmnopqrstuvwxyz'
 
@@ -194,23 +202,23 @@ var alphabet = 'abcdefghijklmnopqrstuvwxyz'
 var openLeverCon = []
 var openDoorCon = []
 
-function addStructure(startHeight, toAdd, extraTiles) {
+function addStructure(startHeight, structure, extraTiles = []) {
 	var k = 0
-	for (var y = 0; y < toAdd.length; y++) { //XX
+	for (var y = 0; y < structure.length; y++) { //XX
 		var ty = y+startHeight
 		if(!towerMap[ty]) towerMap[ty] = []
 
-		for (var tx = 0; tx < toAdd[y].length; tx++) {
-			switch(toAdd[y][tx]) {
+		for (var tx = 0; tx < structure[y].length; tx++) {
+			switch(structure[y][tx]) {
 				default:
-					if (toAdd[y][tx].match(/[A-Z]/)) {
+					if (structure[y][tx].match(/[A-Z]/)) {
 						var l = new Lever(function() {moveDoor(this.targetId)})
-						l.targetId = toAdd[y][tx].toLowerCase()
+						l.targetId = structure[y][tx].toLowerCase()
 						towerMap[ty][tx] = l
-					} else if (toAdd[y][tx].match(/[a-z]/)) {
-						towerMap[ty][tx] = new Door("|", "#", toAdd[y][tx], false)
+					} else if (structure[y][tx].match(/[a-z]/)) {
+						towerMap[ty][tx] = new Door("|", "#", structure[y][tx], false)
 					} else {
-						towerMap[ty][tx] = new Tile(toAdd[y][tx], "", false, false)
+						towerMap[ty][tx] = new Tile(structure[y][tx], "", false, false)
 					}
 					break
 				case '/':
@@ -274,10 +282,10 @@ function addStructure(startHeight, toAdd, extraTiles) {
 	}
 }
 
-function addStructureString(startHeight, toAdd, extraTiles) {
+function addStructureString(startHeight, structure, extraTiles = []) {
 	var output = []
-	for (var y = 0; y < toAdd.length; y++) {
-		var currentLine = toAdd[toAdd.length-y-1].split('')
+	for (var y = 0; y < structure.length; y++) {
+		var currentLine = structure[structure.length-y-1].split('')
 		if(!output[y]) output[y] = []
 
 		for (var x = 0; x < currentLine.length; x++) {
@@ -447,9 +455,7 @@ function moveDoor(id) {
 }
 
 function isEmpty(x, y) {
-	if(!towerMap[y]) return false
-	else if(!towerMap[y][x]) return false
-	else return towerMap[y][x].passable
+	return towerMap[y] && towerMap[y][x] && towerMap[y][x].passable
 }
 
 function isAdjacent(pos1, pos2) {
@@ -486,38 +492,41 @@ function checkVisibility() {
 }
 
 function inView(pos) {
-	if(playChar.y > maxViewHeight/2) return (pos.y < playChar.y+maxViewHeight/2 && pos.y > playChar.y-maxViewHeight/2)
-	else return (pos.y < maxViewHeight)
+	if(playChar.y > MAX_VIEW_HEIGHT/2)
+		return (pos.y < playChar.y+MAX_VIEW_HEIGHT/2 && pos.y > playChar.y-MAX_VIEW_HEIGHT/2)
+	else
+		return (pos.y < MAX_VIEW_HEIGHT)
 }
 
 function moveUser(dx, dy) {
-	if(playChar.lives<1 || playChar.cantMove) return false
+	if(playChar.lives<1 || playChar.cantMove)
+		return false
 
 	if(isEmpty(playChar.x+dx, playChar.y+dy)) {
 		playChar.x += dx
 		playChar.y += dy
-		if(towerMap[playChar.y][playChar.x].interact != undefined) towerMap[playChar.y][playChar.x].interact()
+		towerMap[playChar.y][playChar.x].interact()
 	}
 
 	for (var i = 0; i < floorItems.length; i++) {
-		if(floorItems[i].y == playChar.y && floorItems[i].x == playChar.x) {
+		if(floorItems[i].y == playChar.y && floorItems[i].x == playChar.x && playChar.inventory.length <= MAX_INV) {
 			playChar.inventory.push(floorItems[i])
 			floorItems.splice(i--, 1)
 		}
 	}
 
-	if(towerMap[playChar.y][playChar.x].outside) { //Specify more general danger zone XX
-		if(towerMap[playChar.y-1][playChar.x].passable) fallDown(playChar, dx)
+	if(towerMap[playChar.y][playChar.x].outside && towerMap[playChar.y-1][playChar.x].passable) { //Specify more general danger zone XX
+		fallDown(playChar, dx)
 	}
 
-	if(playChar.y > heightVisible-2) checkVisibility()
+	if(playChar.y > heightVisible-2)
+		checkVisibility()
 
 	displayMap()
 }
 
-function useItem() {
-	var input = parseInt(prompt("Select item to use: "))
-	input--
+function selectItem() {
+	var input = parseInt(prompt("Select item to use: ")) - 1
 	if (isNaN(input)) {
 		console.log("NaN")
 		return false
@@ -525,12 +534,18 @@ function useItem() {
 	else if(input<0 || input>playChar.inventory.length-1) {
 		console.log("Out of range")
 		return false
+	} else {
+		useItem(input)
 	}
-	else {
-		if(playChar.inventory[input].use()) playChar.inventory[input].usesRemaining--
-		if(playChar.inventory[input].usesRemaining<1) playChar.inventory.splice(input, 1)
-		displayMap()
-	}
+}
+
+function useItem(n) {
+	if(playChar.inventory[n-1].use())
+		playChar.inventory[n-1].usesRemaining--
+	if(playChar.inventory[n-1].usesRemaining < 1)
+		playChar.inventory.splice(n-1, 1)
+
+	displayMap()
 }
 
 function KeyboardController(keys, repeat) {
@@ -549,7 +564,7 @@ function KeyboardController(keys, repeat) {
 		return false
 	}
 
-	document.onkeyup= function(event) {
+	document.onkeyup = function(event) {
 		var key= (event || window.event).keyCode
 		if (key in timers) {
 			if (timers[key] !== null)
@@ -575,7 +590,13 @@ KeyboardController({
 	87: function() { moveUser(0, 1) }, //W
 	68: function() { moveUser(1, 0) }, //D
 	83: function() { moveUser(0, -1) }, //S
-	13: function() { useItem(); } //Enter
+	13: function() { selectItem() }, //Enter
+	49: function() { useItem(1) }, //1
+	50: function() { useItem(2) }, //2
+	51: function() { useItem(3) }, //3
+	52: function() { useItem(4) }, //4
+	53: function() { useItem(5) }, //5
+	54: function() { useItem(6) }, //6
 }, 75)
 
 function getColour(obj) {
@@ -590,17 +611,17 @@ function displayMap() {
 	var outputMap = []; //Strings only
 
 	var heightOffset
-	if(playChar.y < maxViewHeight/2) heightOffset = 0
-	else heightOffset = Math.floor(playChar.y-maxViewHeight/2)
+	if(playChar.y < MAX_VIEW_HEIGHT/2) heightOffset = 0
+	else heightOffset = Math.floor(playChar.y-MAX_VIEW_HEIGHT/2)
 
-	for (var i = heightOffset; i < maxViewHeight+heightOffset+1; i++) {
+	for (var i = heightOffset; i < MAX_VIEW_HEIGHT+heightOffset+1; i++) {
 		outputMap[i] = []
 		if(!towerMap[i]) {
 			newFloor(i)
 			return displayMap(); //XX
 		}
 		for (var j = 0; j < towerMap[i].length; j++) {
-			if(i<heightVisible || showAllRooms) outputMap[i][j] = getColour(towerMap[i][j])
+			if(i<heightVisible || SHOW_ALL_ROOMS) outputMap[i][j] = getColour(towerMap[i][j])
 			else {
 				if(towerMap[i][j].outside || towerMap[i][j].alwaysSeen) outputMap[i][j] = getColour(towerMap[i][j])
 				else outputMap[i][j] = '█'
@@ -609,14 +630,14 @@ function displayMap() {
 	}
 
 	for (var i = 0; i < floorItems.length; i++) {
-		if(floorItems[i].y<heightVisible || showAllRooms) {
+		if(floorItems[i].y<heightVisible || SHOW_ALL_ROOMS) {
 			if(inView(floorItems[i])) outputMap[floorItems[i].y][floorItems[i].x] = getColour(floorItems[i])
 		}
 	}
 
 	outputMap[playChar.y][playChar.x] = getColour(playChar)
 
-	for (var i = maxViewHeight+heightOffset-1; i >= heightOffset; i--) {
+	for (var i = MAX_VIEW_HEIGHT+heightOffset-1; i >= heightOffset; i--) {
 	//Goes in reverse order due to screen coords
 		for (var j = 0; j < outputMap[i].length; j++) {
 			displayString += outputMap[i][j]
@@ -637,7 +658,7 @@ function displayMap() {
 	document.getElementById("inventory").innerHTML = invOut
 }
 
-addStructureString(0, sampleTower, [])
+addStructureString(0, sampleTower)
 displayMap()
 
 </script>
