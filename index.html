@@ -202,7 +202,7 @@ function addStructure(startHeight, toAdd, extraTiles) {
 
 		for (var tx = 0; tx < toAdd[y].length; tx++) {
 			switch(toAdd[y][tx]) {
-				default: 
+				default:
 					if (toAdd[y][tx].match(/[A-Z]/)) {
 						var l = new Lever(function() {moveDoor(this.targetId)})
 						l.targetId = toAdd[y][tx].toLowerCase()
@@ -260,7 +260,7 @@ function addStructure(startHeight, toAdd, extraTiles) {
 					break
 				case '!':
 					towerMap[ty][tx] = new Lever(function(status) {console.log("Clonk")})
-					// if(k>leverEffects.length-1) 
+					// if(k>leverEffects.length-1)
 					// else towerMap[ty][tx] = extraTiles[k++]
 					break
 			}
@@ -289,7 +289,7 @@ function addStructureString(startHeight, toAdd, extraTiles) {
 
 function generateRoom(width, height, complexity) {
 	var room = []
-	
+
 	for (var i = 0; i < height; i++) {
 		room[i] = []
 		for (var j = 0; j < width; j++) { //Content
@@ -453,7 +453,7 @@ function isEmpty(x, y) {
 }
 
 function isAdjacent(pos1, pos2) {
-	return ((pos1.x == pos2.x+1 || pos1.x == pos2.x-1) && pos1.y == pos2.y) || ((pos1.y == pos2.y+1 || pos1.y == pos2.y-1) && pos1.x == pos2.x) 
+	return ((pos1.x == pos2.x+1 || pos1.x == pos2.x-1) && pos1.y == pos2.y) || ((pos1.y == pos2.y+1 || pos1.y == pos2.y-1) && pos1.x == pos2.x)
 }
 
 function adjacentCoords(obj) {
@@ -480,7 +480,7 @@ function checkVisibility() {
 		if(towerMap[pos.y][pos.x].outside) break
 		heightVisible++
 		if(towerMap[pos.y][pos.x].icon == '█' && //XX error if not in range
-			towerMap[pos.y][pos.x-1].icon == '█' && 
+			towerMap[pos.y][pos.x-1].icon == '█' &&
 			towerMap[pos.y][pos.x+1].icon == '█' ) break
 	}
 }
@@ -616,16 +616,16 @@ function displayMap() {
 
 	outputMap[playChar.y][playChar.x] = getColour(playChar)
 
-	for (var i = maxViewHeight+heightOffset-1; i >= heightOffset; i--) { 
+	for (var i = maxViewHeight+heightOffset-1; i >= heightOffset; i--) {
 	//Goes in reverse order due to screen coords
 		for (var j = 0; j < outputMap[i].length; j++) {
 			displayString += outputMap[i][j]
 		}
-		displayString += "<br>";	
+		displayString += "<br>";
 	}
 
 	document.getElementById("mapText").innerHTML = displayString
-	document.getElementById("score").innerHTML = 
+	document.getElementById("score").innerHTML =
 	"Lives: "+String(playChar.lives)+"<br>"+
 	"Score: "+String(playChar.score)
 
@@ -637,8 +637,7 @@ function displayMap() {
 	document.getElementById("inventory").innerHTML = invOut
 }
 
-addStructureString(0, bottomFloor, [])
+addStructureString(0, sampleTower, [])
 displayMap()
 
 </script>
-

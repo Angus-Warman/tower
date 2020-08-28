@@ -1,1 +1,1 @@
-Playable in browser [here](https://spwack.github.io/tower/ "Tower"). (soon!)
+Playable in browser [here](https://spwack.github.io/tower/ "Tower").
