@@ -185,7 +185,7 @@ class Item extends Obj {
 		this.y = y
 		this.name = name || ["Bomb", "Scroll", "Key", "Ration"][r(4)]
 		if (this.name == "Scroll"){
-			this.name += [" of Blink", "of Flying"][r(2)]
+			this.name += [" of Blink", " of Flying"][r(2)]
 		}
 
 		switch(this.name) {
