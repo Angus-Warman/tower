@@ -49,6 +49,10 @@ class Obj {
 		this.icon = icon
 		this.colour = colour
 	}
+
+	getColour() {
+		return this.colour ? "<t style='color:"+this.colour+"'>"+this.icon+"</t>" : this.icon
+	}
 }
 
 class Tile extends Obj {
@@ -57,7 +61,7 @@ class Tile extends Obj {
 		this.passable = passable
 		this.outside = outside
 		this.interact = () => {}
-		//this.seen = outside; //XX Visiblity function removed
+		//this.seen = outside; //Visiblity function removed
 	}
 }
 
@@ -106,7 +110,37 @@ class Spike extends Tile {
 		super("^")
 		this.interact = () => {
 			if (!playChar.is.flying)
-				playChar.lives -= damage
+				playChar.takeDamage(damage)
+		}
+	}
+}
+
+class Fire extends Tile {
+	constructor(heat = 1) {
+		super("^", "red")
+		this.interact = () => {
+			if (!playChar.is.flying)
+				playChar.is.burning += heat
+		}
+	}
+}
+
+class Water extends Tile {
+	constructor() {
+		super("~", "blue")
+		this.interact = () => {
+			if (!playChar.is.flying)
+				playChar.is.wet += 1
+		}
+	}
+}
+
+class Lava extends Tile {
+	constructor(heat = 3) {
+		super("~", "red")
+		this.interact = () => {
+			if (!playChar.is.flying)
+				playChar.is.burning += heat
 		}
 	}
 }
@@ -150,24 +184,35 @@ class Item extends Obj {
 		this.x = x
 		this.y = y
 		this.name = name || ["Bomb", "Scroll", "Key", "Ration"][r(4)]
+		if (this.name == "Scroll"){
+			this.name += [" of Blink", " of Flying"][r(2)]
+		}
 
 		switch(this.name) {
 			case "Bomb":
+				this.icon = "*"
 				this.use = explode
 				this.usesRemaining = 1
 				break
 
-			case "Scroll":
+			case "Scroll of Blink":
 				this.use = randTeleport
 				this.usesRemaining = 1
 				break
 
+			case "Scroll of Flying":
+				this.use = () => playChar.is.flying += 20
+				this.usesRemaining = 1
+				break
+
 			case "Key":
+				this.icon = "-"
 				this.use = unlock
 				this.usesRemaining = 1
 				break
 
 			case "Ration":
+				this.icon = ";"
 				this.use = eatFood
 				this.usesRemaining = 1
 				break
@@ -186,6 +231,9 @@ class Room {
 	}
 }
 
+const WET_SLIP_CHANCE = 0.1
+const BURN_DAMAGE_CHANCE = 0.1
+
 class Player extends Obj {
 	constructor(icon, colour) {
 		super(icon, colour)
@@ -196,9 +244,18 @@ class Player extends Obj {
 		this.inventory = [new Item("Dagger"), new Item("Ration"), new Item("Bomb"), new Item("Key"), null, null]
 		this.is = {
 			moving: true,
-			flying: false, //Useful for debugging
-			burning: false, //Mechanics not added
-			wet: false, //Mechanics not added
+			flying: 0,
+			burning: 0,
+			wet: 0,
+		}
+	}
+
+	takeDamage(damage = 1) {
+		this.lives -= damage
+		if (this.lives < 1) {
+			this.is.moving = false
+			this.icon = "X"
+			displayMap()
 		}
 	}
 }
@@ -210,7 +267,7 @@ const MAX_VIEW_HEIGHT = 30
 const SHOW_ALL_ROOMS = true //Visibility isn't quite working yet
 
 var floorItems = []
-var heightVisible = 12; //XX visibility
+var heightVisible = 12; //Visibility
 
 var alphabet = 'abcdefghijklmnopqrstuvwxyz'
 
@@ -220,7 +277,7 @@ var openDoorCon = []
 
 function addStructure(structure, extraTiles = []) {
 	var currentHeight = towerMap.length
-	for (var y = 0; y < structure.length; y++) { //XX
+	for (var y = 0; y < structure.length; y++) {
 		var ty = y+currentHeight
 		if(!towerMap[ty]) towerMap[ty] = []
 
@@ -450,7 +507,7 @@ function fallDown(obj, direction) {
 	tick = setInterval(function() {
 		if(towerMap[obj.y-1][obj.x].icon != '&nbsp;' && !towerMap[obj.y-1][obj.x].passable) {
 			clearInterval(tick)
-			obj.lives -= (distanceFell>10?1:0)
+			obj.takeDamage(distanceFell > 10 ? 1 : 0)
 			obj.is.moving = true
 		} else {
 			obj.y--
@@ -502,7 +559,7 @@ function checkVisibility() {
 		if(pos.x < 1 || pos.x > towerMap[0].length-1) break
 		if(towerMap[pos.y][pos.x].outside) break
 		heightVisible++
-		if(towerMap[pos.y][pos.x].icon == '█' && //XX error if not in range
+		if(towerMap[pos.y][pos.x].icon == '█' && //Error if not in range
 			towerMap[pos.y][pos.x-1].icon == '█' &&
 			towerMap[pos.y][pos.x+1].icon == '█' ) break
 	}
@@ -516,10 +573,31 @@ function inView(pos) {
 }
 
 function moveUser(dx, dy) {
-	if(playChar.lives<1 || !playChar.is.moving)
+	if (playChar.lives<1 || !playChar.is.moving)
 		return false
 
-	if(isEmpty(playChar.x+dx, playChar.y+dy)) {
+	if (playChar.is.burning) {
+		playChar.is.burning -= 1
+		if (Math.random() < BURN_DAMAGE_CHANCE) {
+			playChar.takeDamage()
+			addAlert("Player burns!", "red")
+		}
+	}
+
+	if (playChar.is.wet) {
+		playChar.is.wet -= 1
+		if (Math.random() < WET_SLIP_CHANCE) {
+			dx = [-1, 0, 1][r(3)]
+			dy = [-1, 0, 1][r(3)]
+			addAlert("Player slips!", "blue")
+		}
+	}
+
+	if (playChar.is.flying) {
+		playChar.is.flying -= 1
+	}
+
+	if (isEmpty(playChar.x+dx, playChar.y+dy)) {
 		playChar.x += dx
 		playChar.y += dy
 		towerMap[playChar.y][playChar.x].interact()
@@ -537,7 +615,7 @@ function moveUser(dx, dy) {
 		}
 	}
 
-	if(towerMap[playChar.y][playChar.x].outside && towerMap[playChar.y-1][playChar.x].passable && !playChar.is.flying) //Specify more general danger zone XX
+	if(towerMap[playChar.y][playChar.x].outside && towerMap[playChar.y-1][playChar.x].passable && !playChar.is.flying) //Specify more general danger zone
 		fallDown(playChar, dx)
 
 	if(playChar.y > heightVisible-2)
@@ -588,7 +666,7 @@ function KeyboardController(keys, repeat) {
 	}
 
 	document.onkeyup = function(event) {
-		var key= (event || window.event).keyCode
+		var key = (event || window.event).keyCode
 		if (key in timers) {
 			if (timers[key] !== null)
 				clearInterval(timers[key])
@@ -622,14 +700,7 @@ KeyboardController({
 	54: function() { useItem(5) }, //6
 }, 75)
 
-function getColour(obj) {
-	if(obj.colour != undefined && obj.colour != "") return "<t style='color:"+obj.colour+"'>"+obj.icon+"</t>"
-	else return obj.icon
-}
-
 function displayMap() {
-	if(playChar.lives<1) playChar.icon = "X"
-
 	var displayString = ""
 	var outputMap = []; //Strings only
 
@@ -644,9 +715,9 @@ function displayMap() {
 			return displayMap(); //Should save and continue from here
 		}
 		for (var j = 0; j < towerMap[i].length; j++) {
-			if(i<heightVisible || SHOW_ALL_ROOMS) outputMap[i][j] = getColour(towerMap[i][j])
+			if(i<heightVisible || SHOW_ALL_ROOMS) outputMap[i][j] = towerMap[i][j].getColour()
 			else {
-				if(towerMap[i][j].outside || towerMap[i][j].alwaysSeen) outputMap[i][j] = getColour(towerMap[i][j])
+				if(towerMap[i][j].outside || towerMap[i][j].alwaysSeen) outputMap[i][j] = towerMap[i][j].getColour()
 				else outputMap[i][j] = '█'
 			}
 		}
@@ -654,11 +725,11 @@ function displayMap() {
 
 	for (var i = 0; i < floorItems.length; i++) {
 		if(floorItems[i].y<heightVisible || SHOW_ALL_ROOMS) {
-			if(inView(floorItems[i])) outputMap[floorItems[i].y][floorItems[i].x] = getColour(floorItems[i])
+			if(inView(floorItems[i])) outputMap[floorItems[i].y][floorItems[i].x] = floorItems[i].getColour()
 		}
 	}
 
-	outputMap[playChar.y][playChar.x] = getColour(playChar)
+	outputMap[playChar.y][playChar.x] = playChar.getColour()
 
 	for (var i = MAX_VIEW_HEIGHT+heightOffset-1; i >= heightOffset; i--) {
 	//Goes in reverse order due to screen coords
@@ -675,7 +746,7 @@ function displayMap() {
 
 	for (var status in playChar.is) {
 		if (playChar.is.hasOwnProperty(status) && playChar.is[status] && status != "moving") {
-			status_string += status.toCapitalCase()
+			status_string += status.toCapitalCase() + "<br />"
 		}
 	}
 
@@ -689,9 +760,17 @@ function displayMap() {
 	document.getElementById("inventory").innerHTML = invOut
 }
 
+function addAlert(text, colour = "") {
+	var current_alerts = document.getElementById("alerts").innerHTML //Need to have a limit to the number of displayed alerts
+	var alert = colour ? "<t style='color:"+colour+"'>"+text+"</t>" : text
+	document.getElementById("alerts").innerHTML = alert + "<br />" + current_alerts
+}
+
 for (var floor of default_tower) {
 	addStructureString(floor)
 }
+
+addAlert("Welcome to the Tower!", "green")
 
 displayMap()
 
