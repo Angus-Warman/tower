@@ -319,6 +319,12 @@ function addStructure(structure, extraTiles = []) {
 				case '^':
 					towerMap[ty][tx] = new Spike()
 					break
+				case '~':
+					towerMap[ty][tx] = new Lava();
+					break;
+				case '£':
+					towerMap[ty][tx] = new Water();
+					break;
 				case '$':
 					towerMap[ty][tx] = new Loot(1)
 					break
@@ -512,9 +518,11 @@ function fallDown(obj, direction) {
 		} else {
 			obj.y--
 			distanceFell++
-			obj.x -= distanceAcross
-			distanceAcross = Math.floor(Math.sqrt(distanceFell))*direction
-			obj.x += distanceAcross
+			if(towerMap[obj.y][obj.x+direction].passable) {
+				obj.x -= distanceAcross
+				distanceAcross = Math.floor(Math.sqrt(distanceFell))*direction
+				obj.x += distanceAcross
+			}
 		}
 		displayMap()
 	}, 10)
@@ -593,6 +601,12 @@ function moveUser(dx, dy) {
 		}
 	}
 
+	if (!playChar.is.flying && dy > 0 &&
+		 ((towerMap[playChar.y][playChar.x].outside && !towerMap[playChar.y-1][playChar.x].passable) ||
+		  (towerMap[playChar.y][playChar.x-1].outside || towerMap[playChar.y][playChar.x+1].outside))) {
+		playChar.is.flying += 3
+	}
+
 	if (playChar.is.flying) {
 		playChar.is.flying -= 1
 	}
@@ -649,56 +663,84 @@ function useItem(n) {
 	displayMap()
 }
 
-function KeyboardController(keys, repeat) {
-	var timers = {}
+// function KeyboardController(keys, repeat) {
+// 	var timers = {}
+//
+// 	document.onkeydown = function(event) {
+// 		var key = (event || window.event).keyCode
+// 		if (!(key in keys))
+// 			return true
+// 		if (!(key in timers)) {
+// 			timers[key] = null
+// 			keys[key]()
+// 			if (repeat !== 0)
+// 				timers[key] = setInterval(keys[key], repeat)
+// 		}
+// 		return false
+// 	}
+//
+// 	document.onkeyup = function(event) {
+// 		var key = (event || window.event).keyCode
+// 		if (key in timers) {
+// 			if (timers[key] !== null)
+// 				clearInterval(timers[key])
+// 			delete timers[key]
+// 		}
+// 	}
+//
+// 	window.onblur = function() {
+// 		for (key in timers)
+// 			if (timers[key] !== null)
+// 				clearInterval(timers[key])
+// 		timers = {}
+// 	}
+// }
+//
+// KeyboardController({
+// 	37: function() { moveUser(-1, 0) }, //Left
+// 	38: function() { moveUser(0, 1) }, //Up
+// 	39: function() { moveUser(1, 0) }, //Right
+// 	40: function() { moveUser(0, -1) }, //Down
+// 	65: function() { moveUser(-1, 0) }, //A
+// 	87: function() { moveUser(0, 1) }, //W
+// 	68: function() { moveUser(1, 0) }, //D
+// 	83: function() { moveUser(0, -1) }, //S
+// 	13: function() { selectItem() }, //Enter
+// 	49: function() { useItem(0) }, //1
+// 	50: function() { useItem(1) }, //2
+// 	51: function() { useItem(2) }, //3
+// 	52: function() { useItem(3) }, //4
+// 	53: function() { useItem(4) }, //5
+// 	54: function() { useItem(5) }, //6
+// }, 75)
 
-	document.onkeydown = function(event) {
-		var key = (event || window.event).keyCode
-		if (!(key in keys))
-			return true
-		if (!(key in timers)) {
-			timers[key] = null
-			keys[key]()
-			if (repeat !== 0)
-				timers[key] = setInterval(keys[key], repeat)
-		}
-		return false
-	}
+document.onkeydown = function(event) {
+	let keys = {
+		37: function() { moveUser(-1, 0) }, //Left
+		38: function() { moveUser( 0, 1) }, //Up
+		39: function() { moveUser( 1, 0) }, //Right
+		40: function() { moveUser( 0,-1) }, //Down
+		65: function() { moveUser(-1, 0) }, //A
+		87: function() { moveUser( 0, 1) }, //W
+		68: function() { moveUser( 1, 0) }, //D
+		83: function() { moveUser( 0,-1) }, //S
+		32: function() { moveUser( 0, 0) }, //Space
+		13: function() { selectItem() },    //Enter
+		49: function() { useItem(0) }, //1
+		50: function() { useItem(1) }, //2
+		51: function() { useItem(2) }, //3
+		52: function() { useItem(3) }, //4
+		53: function() { useItem(4) }, //5
+		54: function() { useItem(5) }, //6
+	};
+	let key = (event || window.event).keyCode;
 
-	document.onkeyup = function(event) {
-		var key = (event || window.event).keyCode
-		if (key in timers) {
-			if (timers[key] !== null)
-				clearInterval(timers[key])
-			delete timers[key]
-		}
-	}
+	if (!(key in keys))
+		return true;
 
-	window.onblur = function() {
-		for (key in timers)
-			if (timers[key] !== null)
-				clearInterval(timers[key])
-		timers = {}
-	}
+	keys[key]()
+	return false
 }
-
-KeyboardController({
-	37: function() { moveUser(-1, 0) }, //Left
-	38: function() { moveUser(0, 1) }, //Up
-	39: function() { moveUser(1, 0) }, //Right
-	40: function() { moveUser(0, -1) }, //Down
-	65: function() { moveUser(-1, 0) }, //A
-	87: function() { moveUser(0, 1) }, //W
-	68: function() { moveUser(1, 0) }, //D
-	83: function() { moveUser(0, -1) }, //S
-	13: function() { selectItem() }, //Enter
-	49: function() { useItem(0) }, //1
-	50: function() { useItem(1) }, //2
-	51: function() { useItem(2) }, //3
-	52: function() { useItem(3) }, //4
-	53: function() { useItem(4) }, //5
-	54: function() { useItem(5) }, //6
-}, 75)
 
 function displayMap() {
 	var displayString = ""
