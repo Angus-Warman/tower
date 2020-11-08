@@ -1,0 +1,18 @@
+* rework jumping/gravity
+
+
+* antigrav beam, basically like ladder but can be de/activated with a lever
+   like secretPath in wanderer
+* damage field, like trap but can be de/activated with a lever
+* portals, always generated as a linked pair, must be activated with a lever
+* turrets that shoot slow moving projectiles, de/activate with a lever (puzzle where you have to activate one to shoot down a barricade)
+* pressure plates, like levers but only active when something is standing on them (either player or mobs)
+* boulders, can be pushed around, activate pressure plates
+* conveyor belt
+
+
+* strength serum, increases inventory size by 1
+* stimpak, full heal
+* parachute / inertia damper, triggered instead of taking fall damage
+* warp xx, random teleport in room
+* recoiler, return to given place (eg. shop, start, ...)
